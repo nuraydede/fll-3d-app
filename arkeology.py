@@ -40,7 +40,7 @@ def draw_technical_dimension(img, p1, p2, text, is_vertical=False):
 
 # Streamlit Arayüzü
 st.set_page_config(layout="wide")
-st.title("📏 Profesyonel Teknik Çizim Ölçülendirme")
+st.title("📏 Arkeolojik Buluntu Teknik Çizim Programı")
 
 uploaded_file = st.file_uploader("Arkeolojik parça fotoğrafı yükleyin...", type=["jpg", "png", "jpeg"])
 
