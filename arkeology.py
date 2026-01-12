@@ -3,75 +3,83 @@ import cv2
 import numpy as np
 from PIL import Image
 
-# Başlık ve Açıklama 📝
+def draw_technical_dimension(img, p1, p2, text, is_vertical=False):
+    """Teknik resim standartlarında ölçü çizgisi ve ok çizer."""
+    color = (0, 0, 0)  # Siyah çizgiler
+    thickness = 1
+    offset = 40  # Nesneden uzaklık
+    tick_size = 5
+
+    x1, y1 = p1
+    x2, y2 = p2
+
+    if not is_vertical:
+        # Yatay Ölçülendirme (Genişlik)
+        line_y = min(y1, y2) - offset
+        # Uzatma çizgileri
+        cv2.line(img, (x1, y1 - 5), (x1, line_y - tick_size), color, thickness)
+        cv2.line(img, (x2, y2 - 5), (x2, line_y - tick_size), color, thickness)
+        # Ana ölçü çizgisi ve oklar
+        cv2.arrowedLine(img, (x1 + 20, line_y), (x1, line_y), color, thickness, tipLength=0.2)
+        cv2.arrowedLine(img, (x2 - 20, line_y), (x2, line_y), color, thickness, tipLength=0.2)
+        cv2.line(img, (x1, line_y), (x2, line_y), color, thickness)
+        # Metin
+        cv2.putText(img, text, (x1 + (x2-x1)//2 - 25, line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    else:
+        # Dikey Ölçülendirme (Yükseklik)
+        line_x = x1 - offset
+        # Uzatma çizgileri
+        cv2.line(img, (x1 - 5, y1), (line_x - tick_size, y1), color, thickness)
+        cv2.line(img, (x1 - 5, y2), (line_x - tick_size, y2), color, thickness)
+        # Ana ölçü çizgisi ve oklar
+        cv2.arrowedLine(img, (line_x, y1 + 20), (line_x, y1), color, thickness, tipLength=0.2)
+        cv2.arrowedLine(img, (line_x, y2 - 20), (line_x, y2), color, thickness, tipLength=0.2)
+        cv2.line(img, (line_x, y1), (line_x, y2), color, thickness)
+        # Metin (Dikey)
+        cv2.putText(img, text, (line_x - 45, y1 + (y2-y1)//2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+# Streamlit Arayüzü
 st.set_page_config(layout="wide")
-st.title("🏛️ Arkeolojik Teknik Çizim & Ölçülendirme")
-st.write("Nesne hatlarını çıkarır ve teknik çizim standartlarında boyut bilgilerini ekler.")
+st.title("📏 Profesyonel Teknik Çizim Ölçülendirme")
 
-# 1. Kullanıcıdan Dosya Alımı 📥
-uploaded_file = st.file_uploader("Bir resim seçin...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Arkeolojik parça fotoğrafı yükleyin...", type=["jpg", "png", "jpeg"])
 
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    img_array = np.array(image)
-    img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Orijinal Görüntü")
-        st.image(image, use_container_width=True)
-
-    if st.button('Teknik Çizimi ve Ölçüleri Oluştur'):
-        with st.spinner('Hesaplanıyor...'):
-            # --- ADIM 1: Görüntü İşleme ---
-            gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-            edged = cv2.Canny(blurred, 50, 150)
+if uploaded_file:
+    img = Image.open(uploaded_file)
+    img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    
+    # Çizim için beyaz sayfa ve padding (boşluk) ekleme
+    pad = 80
+    canvas_h, canvas_w = img_bgr.shape[0] + 2*pad, img_bgr.shape[1] + 2*pad
+    white_canvas = np.ones((canvas_h, canvas_w, 3), dtype="uint8") * 255
+    
+    if st.button("Teknik Çizimi Üret"):
+        # Görüntü İşleme
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edged = cv2.Canny(blurred, 50, 150)
+        
+        # Konturları bul
+        contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            # En büyük nesneyi merkeze al (Diğer gürültüleri temizler)
+            c = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(c)
             
-            # Konturları genişlet (çizgileri birleştirmek için)
-            edged = cv2.dilate(edged, None, iterations=1)
-            edged = cv2.erode(edged, None, iterations=1)
-
-            # --- ADIM 2: Nesne Tespiti ve Boyutlandırma ---
-            contours, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Nesnenin hatlarını beyaz tuvale aktar (Siyah kalemle)
+            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], [c], -1, (0, 0, 0), 1)
             
-            # Beyaz arka planlı bir tuval oluştur (Teknik çizim kağıdı)
-            h, w = gray.shape
-            drawing_canvas = np.ones((h, w), dtype="uint8") * 255
+            # Ölçülendirme koordinatlarını ayarla
+            nx, ny = x + pad, y + pad # Tuvaldeki yeni koordinatlar
             
-            # Tüm kenarları siyah kalemle çiz
-            cv2.drawContours(drawing_canvas, contours, -1, (0, 0, 0), 1)
-
-            if contours:
-                # En büyük konturu veya tüm nesneleri kapsayan alanı bulalım
-                all_cnts = np.concatenate(contours)
-                x, y, w_box, h_box = cv2.boundingRect(all_cnts)
-
-                # --- ADIM 3: Teknik Çizim Standartlarında Ölçülendirme ---
-                color = (100, 100, 100) # Gri tonlu ölçü çizgileri
-                thickness = 1
-                offset = 20 # Çizgilerin nesneden uzaklığı
-
-                # Genişlik Çizgisi (Üstte)
-                cv2.line(drawing_canvas, (x, y - offset), (x + w_box, y - offset), color, thickness)
-                cv2.line(drawing_canvas, (x, y - offset - 5), (x, y - offset + 5), color, thickness)
-                cv2.line(drawing_canvas, (x + w_box, y - offset - 5), (x + w_box, y - offset + 5), color, thickness)
-                
-                # Yükseklik Çizgisi (Solda)
-                cv2.line(drawing_canvas, (x - offset, y), (x - offset, y + h_box), color, thickness)
-                cv2.line(drawing_canvas, (x - offset - 5, y), (x - offset + 5, y), color, thickness)
-                cv2.line(drawing_canvas, (x - offset - 5, y + h_box), (x - offset + 5, y + h_box), color, thickness)
-
-                # Metin Yazdırma (Boyutlar)
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(drawing_canvas, f"{w_box}px", (x + w_box//2 - 20, y - offset - 10), font, 0.5, (0,0,0), 1)
-                cv2.putText(drawing_canvas, f"{h_box}px", (x - offset - 50, y + h_box//2), font, 0.5, (0,0,0), 1)
-
-            with col2:
-                st.subheader("Teknik Çizim Çıktısı")
-                st.image(drawing_canvas, use_container_width=True)
-                
-                # İndirme Seçeneği
-                result_img = Image.fromarray(drawing_canvas)
-                st.success("Ölçülendirme tamamlandı!")
+            # GENİŞLİK ÖLÇÜSÜ (Üstte)
+            draw_technical_dimension(white_canvas, (nx, ny), (nx + w, ny), f"{w} px")
+            
+            # YÜKSEKLİK ÖLÇÜSÜ (Solda)
+            draw_technical_dimension(white_canvas, (nx, ny), (nx, ny + h), f"{h} px", is_vertical=True)
+            
+            # Sonuçları Göster
+            col1, col2 = st.columns(2)
+            col1.image(img, caption="Orijinal Görüntü", use_container_width=True)
+            col2.image(white_canvas, caption="Teknik Ölçülendirilmiş Çizim", use_container_width=True)
