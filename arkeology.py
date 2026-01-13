@@ -4,106 +4,75 @@ import numpy as np
 from PIL import Image
 
 def draw_technical_dimension(img, p1, p2, text, is_vertical=False):
-    """Teknik resim standartlarında ölçü çizgisi ve ok çizer."""
-    color = (0, 0, 0)  # Siyah çizgiler
+    """Ölçü çizgilerini siyah ve ince çizer."""
+    color = (0, 0, 0)
     thickness = 1
-    offset = 40  # Nesneden uzaklık
-    tick_size = 5
-
+    offset = 30
     x1, y1 = p1
     x2, y2 = p2
 
     if not is_vertical:
-        # Yatay Ölçülendirme (Genişlik)
-        line_y = min(y1, y2) - offset
-        # Uzatma çizgileri
-        cv2.line(img, (x1, y1 - 5), (x1, line_y - tick_size), color, thickness)
-        cv2.line(img, (x2, y2 - 5), (x2, line_y - tick_size), color, thickness)
-        # Ana ölçü çizgisi ve oklar
-        cv2.arrowedLine(img, (x1 + 20, line_y), (x1, line_y), color, thickness, tipLength=0.2)
-        cv2.arrowedLine(img, (x2 - 20, line_y), (x2, line_y), color, thickness, tipLength=0.2)
-        cv2.line(img, (x1, line_y), (x2, line_y), color, thickness)
-        # Metin
-        cv2.putText(img, text, (x1 + (x2-x1)//2 - 25, line_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        line_y = y1 - offset
+        cv2.line(img, (x1, y1), (x1, line_y), color, 1)
+        cv2.line(img, (x2, y2), (x2, line_y), color, 1)
+        cv2.line(img, (x1, line_y), (x2, line_y), color, 1)
+        cv2.putText(img, text, (x1 + (x2-x1)//2 - 20, line_y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
     else:
-        # Dikey Ölçülendirme (Yükseklik)
         line_x = x1 - offset
-        # Uzatma çizgileri
-        cv2.line(img, (x1 - 5, y1), (line_x - tick_size, y1), color, thickness)
-        cv2.line(img, (x1 - 5, y2), (line_x - tick_size, y2), color, thickness)
-        # Ana ölçü çizgisi ve oklar
-        cv2.arrowedLine(img, (line_x, y1 + 20), (line_x, y1), color, thickness, tipLength=0.2)
-        cv2.arrowedLine(img, (line_x, y2 - 20), (line_x, y2), color, thickness, tipLength=0.2)
-        cv2.line(img, (line_x, y1), (line_x, y2), color, thickness)
-        # Metin (Dikey)
-        cv2.putText(img, text, (line_x - 45, y1 + (y2-y1)//2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        cv2.line(img, (x1, y1), (line_x, y1), color, 1)
+        cv2.line(img, (x1, y2), (line_x, y2), color, 1)
+        cv2.line(img, (line_x, y1), (line_x, y2), color, 1)
+        cv2.putText(img, text, (line_x - 40, y1 + (y2-y1)//2), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-# Streamlit Arayüzü
-st.set_page_config(layout="wide")
-st.title("📏 Arkeolojik Buluntu Teknik Çizim Programı")
+st.set_page_config(layout="wide", page_title="Teknik Çizim")
+st.title("📏 Arkeolojik Teknik Çizim Paneli")
 
-uploaded_file = st.file_uploader("Arkeolojik parça fotoğrafı yükleyin...", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Fotoğraf yükleyin...", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
-    img = Image.open(uploaded_file)
-    img_bgr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    # Resmi oku
+    img_pil = Image.open(uploaded_file)
+    img_array = np.array(img_pil)
+    img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
     
-    # Çizim için beyaz sayfa ve padding (boşluk) ekleme
-    pad = 80
-    canvas_h, canvas_w = img_bgr.shape[0] + 2*pad, img_bgr.shape[1] + 2*pad
-    white_canvas = np.ones((canvas_h, canvas_w, 3), dtype="uint8") * 255
-    
+    # Boş Beyaz Tuval Oluştur
+    pad = 60
+    h, w = img_bgr.shape[:2]
+    canvas = np.ones((h + 2*pad, w + 2*pad, 3), dtype="uint8") * 255
+
     if st.button("Teknik Çizimi Üret"):
-        # Görüntü İşleme
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edged = cv2.Canny(blurred, 50, 150)
-        
-        # Konturları bul
-        contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-      
-    if contours:
-            # 1. Tüm konturları siyah tuvale çiz (Tek bir tane değil, hepsini!)
-            # Kalınlığı 1 yerine 2 yaparak daha belirgin hale getiriyoruz
-            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], contours, -1, (0, 0, 0), 2)
-            
-            # 2. Ölçülendirme için tüm nesnelerin kapladığı genel alanı bul
-            # Tüm konturları birleştirerek genel bir sınır kutusu (bounding box) oluşturuyoruz
-            all_contours = np.vstack(contours)
-            x, y, w, h = cv2.boundingRect(all_contours)
-            
-            # Tuvaldeki koordinatları güncelle
-            nx, ny = x + pad, y + pad
-            
-            # 3. Ölçülendirme Çizgileri
-            draw_technical_dimension(white_canvas, (nx, ny), (nx + w, ny), f"{w} px")
-            draw_technical_dimension(white_canvas, (nx, ny), (nx, ny + h), f"{h} px", is_vertical=True)
-            
-            # --- Sonuçları Göster ---
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.image(img, caption="Orijinal Görüntü", use_container_width=True)
-            
-            with col2:
-                # 4. Dinamik Kırpma: Sadece çizim olan bölgeyi göster (Beyaz boşlukları at)
-                # Resmin tamamını değil, nesnenin olduğu yeri büyükçe gösterir
-                crop_y1, crop_y2 = max(0, ny - 50), min(canvas_h, ny + h + 50)
-                crop_x1, crop_x2 = max(0, nx - 50), min(canvas_w, nx + w + 50)
+        with st.spinner("Çiziliyor..."):
+            # Görüntü İşleme (Tüm resmi yakalamak için)
+            gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            # Keskinliği artırıp gürültüyü azaltalım
+            blurred = cv2.bilateralFilter(gray, 9, 75, 75) 
+            edged = cv2.Canny(blurred, 30, 100) # Daha hassas kenar tespiti
+
+            # TÜM konturları bul
+            contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if len(contours) > 0:
+                # 1. TÜM hatları ince siyah kalemle (thickness=1) çiz
+                cv2.drawContours(canvas[pad:-pad, pad:-pad], contours, -1, (0, 0, 0), 1)
+
+                # 2. Genel sınırları bul (Ölçülendirme için)
+                all_pts = np.vstack(contours)
+                rx, ry, rw, rh = cv2.boundingRect(all_pts)
                 
-                final_view = white_canvas[crop_y1:crop_y2, crop_x1:crop_x2]
-                st.image(final_view, caption="Görüntünün Tamamı (Teknik Çizim)", use_container_width=True)
-            
-            with col1:
-                st.image(img, caption="Orijinal Görüntü", use_container_width=True)
-            
-            with col2:
-                # ÖNEMLİ: Çizimi nesneye göre kırpıyoruz ki ekranda büyük görünsün
-                # Nesnenin olduğu alanı ve ölçülendirme paylarını (pad) seçiyoruz
-                crop_y1, crop_y2 = max(0, ny - pad), min(canvas_h, ny + h + pad)
-                crop_x1, crop_x2 = max(0, nx - pad), min(canvas_w, nx + w + pad)
+                # Tuval üzerindeki yerleri
+                nx, ny = rx + pad, ry + pad
+
+                # 3. Ölçülendirme
+                draw_technical_dimension(canvas, (nx, ny), (nx + rw, ny), f"{rw}px")
+                draw_technical_dimension(canvas, (nx, ny), (nx, ny + rh), f"{rh}px", True)
+
+                # Görselleştirme
+                col1, col2 = st.columns(2)
+                col1.image(img_pil, caption="Orijinal", use_container_width=True)
                 
-                final_view = white_canvas[crop_y1:crop_y2, crop_x1:crop_x2]
-                
-                st.image(final_view, caption="Teknik Ölçülendirilmiş Çizim", use_container_width=True)
+                # Kırpma: Sadece çizilen objeyi göster
+                final_view = canvas[max(0, ny-50):min(canvas.shape[0], ny+rh+50), 
+                                    max(0, nx-50):min(canvas.shape[1], nx+rw+50)]
+                col2.image(final_view, caption="Teknik Çizim", use_container_width=True)
+            else:
+                st.warning("Belirgin bir hat bulunamadı. Lütfen daha net bir fotoğraf deneyin.")
