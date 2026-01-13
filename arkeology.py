@@ -62,7 +62,7 @@ if uploaded_file:
         # Konturları bul
         contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        if contours:
+      
        if contours:
             # 1. Tüm konturları siyah tuvale çiz (Tek bir tane değil, hepsini!)
             # Kalınlığı 1 yerine 2 yaparak daha belirgin hale getiriyoruz
