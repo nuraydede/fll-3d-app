@@ -63,25 +63,37 @@ if uploaded_file:
         contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
-            # En büyük nesneyi merkeze al (Diğer gürültüleri temizler)
-            c = max(contours, key=cv2.contourArea)
-            x, y, w, h = cv2.boundingRect(c)
+       if contours:
+            # 1. Tüm konturları siyah tuvale çiz (Tek bir tane değil, hepsini!)
+            # Kalınlığı 1 yerine 2 yaparak daha belirgin hale getiriyoruz
+            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], contours, -1, (0, 0, 0), 2)
             
-            # Nesnenin hatlarını beyaz tuvale aktar (Siyah kalemle)
-            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], [c], -1, (0, 0, 0), 2)
+            # 2. Ölçülendirme için tüm nesnelerin kapladığı genel alanı bul
+            # Tüm konturları birleştirerek genel bir sınır kutusu (bounding box) oluşturuyoruz
+            all_contours = np.vstack(contours)
+            x, y, w, h = cv2.boundingRect(all_contours)
             
-            # Ölçülendirme koordinatlarını ayarla
-            nx, ny = x + pad, y + pad # Tuvaldeki yeni koordinatlar
+            # Tuvaldeki koordinatları güncelle
+            nx, ny = x + pad, y + pad
             
-            # GENİŞLİK ÖLÇÜSÜ (Üstte)
+            # 3. Ölçülendirme Çizgileri
             draw_technical_dimension(white_canvas, (nx, ny), (nx + w, ny), f"{w} px")
-            
-            # YÜKSEKLİK ÖLÇÜSÜ (Solda)
             draw_technical_dimension(white_canvas, (nx, ny), (nx, ny + h), f"{h} px", is_vertical=True)
             
-            # Sonuçları Göster
             # --- Sonuçları Göster ---
             col1, col2 = st.columns(2)
+            
+            with col1:
+                st.image(img, caption="Orijinal Görüntü", use_container_width=True)
+            
+            with col2:
+                # 4. Dinamik Kırpma: Sadece çizim olan bölgeyi göster (Beyaz boşlukları at)
+                # Resmin tamamını değil, nesnenin olduğu yeri büyükçe gösterir
+                crop_y1, crop_y2 = max(0, ny - 50), min(canvas_h, ny + h + 50)
+                crop_x1, crop_x2 = max(0, nx - 50), min(canvas_w, nx + w + 50)
+                
+                final_view = white_canvas[crop_y1:crop_y2, crop_x1:crop_x2]
+                st.image(final_view, caption="Görüntünün Tamamı (Teknik Çizim)", use_container_width=True)
             
             with col1:
                 st.image(img, caption="Orijinal Görüntü", use_container_width=True)
