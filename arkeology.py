@@ -68,7 +68,7 @@ if uploaded_file:
             x, y, w, h = cv2.boundingRect(c)
             
             # Nesnenin hatlarını beyaz tuvale aktar (Siyah kalemle)
-            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], [c], -1, (0, 0, 0), 1)
+            cv2.drawContours(white_canvas[pad:-pad, pad:-pad], [c], -1, (0, 0, 0), 2)
             
             # Ölçülendirme koordinatlarını ayarla
             nx, ny = x + pad, y + pad # Tuvaldeki yeni koordinatlar
@@ -80,6 +80,18 @@ if uploaded_file:
             draw_technical_dimension(white_canvas, (nx, ny), (nx, ny + h), f"{h} px", is_vertical=True)
             
             # Sonuçları Göster
+            # --- Sonuçları Göster ---
             col1, col2 = st.columns(2)
-            col1.image(img, caption="Orijinal Görüntü", use_container_width=True)
-            col2.image(white_canvas, caption="Teknik Ölçülendirilmiş Çizim", use_container_width=True)
+            
+            with col1:
+                st.image(img, caption="Orijinal Görüntü", use_container_width=True)
+            
+            with col2:
+                # ÖNEMLİ: Çizimi nesneye göre kırpıyoruz ki ekranda büyük görünsün
+                # Nesnenin olduğu alanı ve ölçülendirme paylarını (pad) seçiyoruz
+                crop_y1, crop_y2 = max(0, ny - pad), min(canvas_h, ny + h + pad)
+                crop_x1, crop_x2 = max(0, nx - pad), min(canvas_w, nx + w + pad)
+                
+                final_view = white_canvas[crop_y1:crop_y2, crop_x1:crop_x2]
+                
+                st.image(final_view, caption="Teknik Ölçülendirilmiş Çizim", use_container_width=True)
